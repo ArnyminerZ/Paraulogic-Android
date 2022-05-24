@@ -1,10 +1,12 @@
 package com.arnyminerz.paraulogic.ui.bar
 
 import android.content.Intent
+import android.os.RemoteException
 import androidx.activity.result.ActivityResultLauncher
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountCircle
@@ -21,9 +23,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import coil.compose.rememberImagePainter
 import com.arnyminerz.paraulogic.R
+import com.arnyminerz.paraulogic.ui.viewmodel.MainViewModel
+import com.arnyminerz.paraulogic.utils.activity
+import com.arnyminerz.paraulogic.utils.getDimensionAttribute
 import com.arnyminerz.paraulogic.utils.launchUrl
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.games.Games
+import com.google.android.gms.games.GamesSignInClient
+import com.google.android.gms.games.PlayGames
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 
 /**
@@ -33,14 +40,17 @@ import timber.log.Timber
  * @since 20220323
  * @param achievementsLauncher Should request the Google Api to show the achievements for the
  * currently logged in user.
- * @param signInRequest When login is required, this will get called.
+ * @throws RemoteException When the current logged in user profile could not be obtained.
  */
 @Composable
+@Throws(RemoteException::class)
 fun MainTopAppBar(
+    viewModel: MainViewModel,
+    signInClient: GamesSignInClient,
     achievementsLauncher: ActivityResultLauncher<Intent>,
-    signInRequest: () -> Unit,
 ) {
     val context = LocalContext.current
+    val activity = context.activity!!
 
     CenterAlignedTopAppBar(
         navigationIcon = {
@@ -59,14 +69,19 @@ fun MainTopAppBar(
                 contentDescription = stringResource(R.string.image_desc_paraulogic),
                 contentScale = ContentScale.Fit,
                 modifier = Modifier
-                    .fillMaxWidth(.6f)
+                    .height(
+                        (getDimensionAttribute(android.R.attr.actionBarSize) * .4f)
+                            .dp
+                    )
+                    .padding(start = 48.dp, end = 48.dp)
             )
         },
         actions = {
-            val account = GoogleSignIn.getLastSignedInAccount(context)
-            if (account == null)
+            val isAuthenticated = viewModel.isAuthenticated
+
+            if (!isAuthenticated)
                 IconButton(
-                    onClick = signInRequest,
+                    onClick = { viewModel.signIn(signInClient) },
                     modifier = Modifier
                         .size(48.dp)
                 ) {
@@ -76,8 +91,10 @@ fun MainTopAppBar(
                     )
                 }
             else {
+                val account =
+                    runBlocking { PlayGames.getPlayersClient(activity).currentPlayer.await() }
                 val showAchievements: () -> Unit = {
-                    Games.getAchievementsClient(context, account)
+                    PlayGames.getAchievementsClient(activity)
                         .achievementsIntent
                         .addOnSuccessListener { achievementsLauncher.launch(it) }
                         .addOnFailureListener {
@@ -88,7 +105,7 @@ fun MainTopAppBar(
                         }
                 }
 
-                val photoUrl = account.photoUrl
+                val photoUrl = account.iconImageUri
                 if (photoUrl == null) {
                     Timber.w("User does not have a photo or permission is denied")
                     IconButton(
@@ -103,7 +120,7 @@ fun MainTopAppBar(
                     }
                 } else
                     Image(
-                        painter = rememberImagePainter(account.photoUrl),
+                        painter = rememberImagePainter(photoUrl),
                         contentDescription = stringResource(R.string.image_desc_profile),
                         contentScale = ContentScale.Fit,
                         modifier = Modifier

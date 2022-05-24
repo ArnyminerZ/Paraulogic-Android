@@ -13,93 +13,29 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModelProvider
 import com.arnyminerz.paraulogic.R
 import com.arnyminerz.paraulogic.activity.model.LanguageActivity
-import com.arnyminerz.paraulogic.play.games.*
+import com.arnyminerz.paraulogic.play.games.tryToAddPoints
 import com.arnyminerz.paraulogic.pref.PreferencesModule
 import com.arnyminerz.paraulogic.pref.dataStore
-import com.arnyminerz.paraulogic.singleton.DatabaseSingleton
-import com.arnyminerz.paraulogic.storage.entity.IntroducedWord
 import com.arnyminerz.paraulogic.ui.dialog.BuyCoffeeDialog
 import com.arnyminerz.paraulogic.ui.elements.MainScreen
 import com.arnyminerz.paraulogic.ui.theme.AppTheme
 import com.arnyminerz.paraulogic.ui.toast
 import com.arnyminerz.paraulogic.ui.viewmodel.MainViewModel
-import com.arnyminerz.paraulogic.utils.*
+import com.arnyminerz.paraulogic.utils.doAsync
+import com.arnyminerz.paraulogic.utils.doOnUi
+import com.arnyminerz.paraulogic.utils.uiContext
 import com.google.accompanist.pager.ExperimentalPagerApi
-import com.google.android.gms.auth.api.Auth
-import com.google.android.gms.auth.api.signin.GoogleSignInClient
-import com.google.android.gms.common.api.ApiException
-import com.google.android.gms.tasks.RuntimeExecutionException
-import com.google.firebase.analytics.ktx.analytics
-import com.google.firebase.ktx.Firebase
+import com.google.android.gms.games.GamesSignInClient
+import com.google.android.gms.games.PlayGames
+import com.google.android.gms.games.SnapshotsClient
 import kotlinx.coroutines.flow.first
-import org.json.JSONException
 import timber.log.Timber
-import java.io.IOException
 
 class MainActivity : LanguageActivity() {
-    /**
-     * The client for performing sign in operations with Google.
-     * @author Arnau Mora
-     * @since 20220309
-     */
-    private lateinit var signInClient: GoogleSignInClient
 
-    @Suppress("BlockingMethodInNonBlockingContext")
-    private val signInLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        result.data?.let { data ->
-            val signInResult = Auth.GoogleSignInApi.getSignInResultFromIntent(data)
-            if (signInResult?.isSuccess == true) {
-                val account = signInResult.signInAccount!!
-                Timber.i("Signed in successfully.")
-                toast(R.string.toast_signed_in)
+    private lateinit var gamesSignInClient: GamesSignInClient
 
-                Firebase.analytics.setUserId(account.id)
-
-                doAsync {
-                    Timber.d("Getting words list from logged in account.")
-                    val serverList = try {
-                        loadSnapshot(account)
-                            ?.snapshotContents
-                            ?.readFully()
-                            ?.let { String(it) }
-                            ?.also { Timber.i("Server JSON: $it") }
-                            ?.toJsonArray()
-                            ?.mapJsonObject { IntroducedWord(it) }
-                            ?.toList()
-                    } catch (e: JSONException) {
-                        Timber.e(e, "Could not parse JSON")
-                        null
-                    } catch (e: RuntimeExecutionException) {
-                        Timber.e(e, "Could not get snapshot.")
-                        null
-                    } catch (e: ApiException) {
-                        Timber.e(e, "Google Play Api thrown an exception.")
-                        null
-                    } catch (e: IOException) {
-                        Timber.e(e, "Could not read the game progress snapshot's stream.")
-                        null
-                    } ?: emptyList()
-                    DatabaseSingleton.getInstance(this@MainActivity)
-                        .db
-                        .wordsDao()
-                        .let { wordsDao ->
-                            val wordsList = wordsDao.getAll().first()
-                            if (wordsList.isEmpty()) {
-                                Timber.i("Adding ${serverList.size} words to local db")
-                                wordsDao.put(*serverList.toTypedArray())
-                            }
-                        }
-                }
-            } else {
-                Timber.e("Could not sign in. Status: ${signInResult?.status}")
-                signInResult?.status?.statusMessage?.let { toast(it) }
-            }
-        } ?: run {
-            Timber.w("Cannot process sign in result since data is null.")
-        }
-    }
+    private lateinit var snapshotsClient: SnapshotsClient
 
     private val popupLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -113,8 +49,10 @@ class MainActivity : LanguageActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        Timber.d("Creating sign in client...")
-        signInClient = createSignInClient()
+        Timber.d("Initializing games sign in client...")
+        gamesSignInClient = PlayGames.getGamesSignInClient(this)
+
+        snapshotsClient = PlayGames.getSnapshotsClient(this)
 
         Timber.d("Initializing main view model...")
         val viewModel: MainViewModel = ViewModelProvider(
@@ -126,9 +64,7 @@ class MainActivity : LanguageActivity() {
             val snackbarHostState = remember { SnackbarHostState() }
 
             AppTheme {
-                MainScreen(snackbarHostState, viewModel, popupLauncher) {
-                    startSignInIntent(signInClient, signInLauncher)
-                }
+                MainScreen(snackbarHostState, gamesSignInClient, viewModel, popupLauncher)
 
                 var showingDialog by remember { mutableStateOf(false) }
                 BuyCoffeeDialog(showingDialog) { showingDialog = false }
@@ -139,7 +75,7 @@ class MainActivity : LanguageActivity() {
                 }
             }
 
-            viewModel.loadGameInfo(signInClient, signInLauncher) {
+            viewModel.loadGameInfo(gamesSignInClient, snapshotsClient) {
                 doOnUi {
                     if (it)
                         snackbarHostState.showSnackbar(
@@ -157,10 +93,6 @@ class MainActivity : LanguageActivity() {
         super.onResume()
 
         doAsync {
-            signInSilently(signInClient)?.run {
-                Timber.i("Log in successful")
-            }
-
             Timber.i("Trying to add missing points...")
             tryToAddPoints(this@MainActivity)
         }
@@ -170,10 +102,6 @@ class MainActivity : LanguageActivity() {
         super.onStop()
 
         doAsync {
-            signInSilently(signInClient)?.run {
-                Timber.i("Log in successful")
-            }
-
             Timber.i("Trying to add missing points...")
             tryToAddPoints(this@MainActivity)
         }

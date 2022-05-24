@@ -26,9 +26,11 @@ import com.arnyminerz.paraulogic.ui.bar.MainBottomAppBar
 import com.arnyminerz.paraulogic.ui.bar.MainTopAppBar
 import com.arnyminerz.paraulogic.ui.screen.StatsScreen
 import com.arnyminerz.paraulogic.ui.viewmodel.MainViewModel
+import com.arnyminerz.paraulogic.utils.activity
 import com.google.accompanist.pager.ExperimentalPagerApi
 import com.google.accompanist.pager.HorizontalPager
 import com.google.accompanist.pager.rememberPagerState
+import com.google.android.gms.games.GamesSignInClient
 import timber.log.Timber
 
 @Composable
@@ -37,9 +39,9 @@ import timber.log.Timber
 @ExperimentalMaterial3Api
 fun MainScreen(
     snackbarHostState: SnackbarHostState,
+    signInClient: GamesSignInClient,
     viewModel: MainViewModel,
     popupLauncher: ActivityResultLauncher<Intent>,
-    signInRequest: () -> Unit,
 ) {
     val context = LocalContext.current
 
@@ -51,7 +53,7 @@ fun MainScreen(
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        topBar = { MainTopAppBar(popupLauncher, signInRequest) },
+        topBar = { MainTopAppBar(viewModel, signInClient, popupLauncher) },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         bottomBar = {
             val points = viewModel.points
@@ -109,6 +111,7 @@ fun MainScreen(
         }
 
         if (gameInfo != null && gameHistory.isNotEmpty())
-            viewModel.synchronize(context, gameInfo, gameHistory)
+            viewModel.synchronize(context.activity!!, gameInfo, gameHistory)
+        viewModel.loadAuthState(signInClient)
     }
 }

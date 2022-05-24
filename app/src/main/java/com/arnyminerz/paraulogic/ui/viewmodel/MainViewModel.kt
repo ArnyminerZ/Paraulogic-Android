@@ -1,10 +1,7 @@
 package com.arnyminerz.paraulogic.ui.viewmodel
 
+import android.app.Activity
 import android.app.Application
-import android.content.Context
-import android.content.Intent
-import androidx.activity.result.ActivityResultLauncher
-import androidx.annotation.UiThread
 import androidx.annotation.WorkerThread
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -29,7 +26,6 @@ import com.arnyminerz.paraulogic.game.getTutis
 import com.arnyminerz.paraulogic.game.loadGameHistoryFromServer
 import com.arnyminerz.paraulogic.game.loadGameInfoFromServer
 import com.arnyminerz.paraulogic.play.games.loadSnapshot
-import com.arnyminerz.paraulogic.play.games.startSignInIntent
 import com.arnyminerz.paraulogic.play.games.startSynchronization
 import com.arnyminerz.paraulogic.play.games.writeSnapshot
 import com.arnyminerz.paraulogic.pref.PreferencesModule
@@ -38,8 +34,8 @@ import com.arnyminerz.paraulogic.singleton.DatabaseSingleton
 import com.arnyminerz.paraulogic.storage.entity.IntroducedWord
 import com.arnyminerz.paraulogic.utils.doAsync
 import com.arnyminerz.paraulogic.utils.ioContext
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInClient
+import com.google.android.gms.games.GamesSignInClient
+import com.google.android.gms.games.SnapshotsClient
 import com.google.android.gms.tasks.RuntimeExecutionException
 import com.google.firebase.FirebaseException
 import com.google.firebase.analytics.FirebaseAnalytics
@@ -50,6 +46,7 @@ import com.google.firebase.perf.metrics.AddTrace
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import timber.log.Timber
@@ -88,94 +85,108 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     var dayWrongWords by mutableStateOf<Map<String, Int>>(emptyMap())
         private set
 
+    /**
+     * Holds whether the user is authenticated or not.
+     * @author Arnau Mora
+     * @since 20220523
+     */
+    var isAuthenticated by mutableStateOf(false)
+
     fun loadGameInfo(
-        signInClient: GoogleSignInClient,
-        signInLauncher: ActivityResultLauncher<Intent>,
+        signInClient: GamesSignInClient,
+        snapshotsClient: SnapshotsClient,
         @WorkerThread loadingGameProgressCallback: (finished: Boolean) -> Unit,
     ) {
         viewModelScope.launch {
-            /*if (correctWords.isNotEmpty()) {
-                Timber.i("Tried to load GameInfo when already loaded.")
-                return@launch
-            }*/
+            ioContext {
+                Timber.v("Resetting error flag...")
+                error = RESULT_OK
 
-            Timber.v("Resetting error flag...")
-            error = RESULT_OK
+                Timber.v("Checking if tried to sign in ever...")
+                val context = getApplication<App>()
+                val dataStore = context.dataStore
+                if (dataStore.data.first()[PreferencesModule.TriedToSignIn] != true) {
+                    val isAuthenticated = signInClient
+                        .isAuthenticated
+                        .await()
+                        .isAuthenticated
 
-            Timber.v("Checking if tried to sign in ever...")
-            val context = getApplication<App>()
-            val dataStore = context.dataStore
-            if (dataStore.data.first()[PreferencesModule.TriedToSignIn] != true) {
-                Timber.i("Never shown sign in intent. Showing...")
-                startSignInIntent(signInClient, signInLauncher)
-                Timber.i("Updating tried to sign in to true...")
-                dataStore.edit { it[PreferencesModule.TriedToSignIn] = true }
-            }
-
-            doAsync {
-                Timber.v("Adding collector for words...")
-                DatabaseSingleton.getInstance(context)
-                    .db
-                    .wordsDao()
-                    .getAll()
-                    .collect { wordsList ->
-                        Timber.i("Introduced new word.")
-                        GoogleSignIn
-                            .getLastSignedInAccount(context)
-                            ?.let { account ->
-                                Timber.i("Saving game progress...")
-                                Timber.d("Decoding words list...")
-                                val array = JSONArray()
-                                wordsList.forEachIndexed { i, t -> array.put(i, t.jsonObject()) }
-                                val serializedString = array.toString()
-                                // Timber.v("Progress json: $serializedString")
-                                try {
-                                    Timber.d("Loading snapshot for account...")
-                                    val snapshot = context.loadSnapshot(account)
-                                    if (snapshot != null) {
-                                        Timber.d("Writing snapshot...")
-                                        val snapshotMetadata = context.writeSnapshot(
-                                            account,
-                                            snapshot,
-                                            serializedString.toByteArray(Charsets.UTF_8),
-                                            null,
-                                            "Paraulogic game save",
-                                        )
-                                        Timber.i("Saved game for ${snapshotMetadata.title}")
-                                    } else
-                                        Timber.w("Could not write snapshot since not available on server.")
-                                } catch (e: IllegalStateException) {
-                                    Timber.e(e, "Could not load snapshot.")
-                                    startSignInIntent(signInClient, signInLauncher)
-                                } catch (e: RuntimeExecutionException) {
-                                    Timber.e(e, "There's no stored snapshot.")
-                                }
-                            } ?: run { Timber.w("User not logged in") }
+                    if (!isAuthenticated) {
+                        Timber.i("Never shown sign in intent. Showing...")
+                        signInClient
+                            .signIn()
+                            .await()
                     }
+
+                    Timber.i("Updating tried to sign in to true...")
+                    dataStore.edit { it[PreferencesModule.TriedToSignIn] = true }
+                }
+
+                doAsync {
+                    Timber.v("Adding collector for words...")
+                    DatabaseSingleton.getInstance(context)
+                        .db
+                        .wordsDao()
+                        .getAll()
+                        .collect { wordsList ->
+                            Timber.i("Introduced new word.")
+                            Timber.i("Saving game progress...")
+                            Timber.d("Decoding words list...")
+                            val array = JSONArray()
+                            wordsList.forEachIndexed { i, t ->
+                                array.put(
+                                    i,
+                                    t.jsonObject()
+                                )
+                            }
+                            val serializedString = array.toString()
+                            // Timber.v("Progress json: $serializedString")
+                            try {
+                                Timber.d("Loading snapshot for account...")
+                                val snapshot = loadSnapshot(snapshotsClient)
+                                if (snapshot != null) {
+                                    Timber.d("Writing snapshot...")
+                                    val snapshotMetadata = writeSnapshot(
+                                        snapshotsClient,
+                                        snapshot,
+                                        serializedString.toByteArray(Charsets.UTF_8),
+                                        null,
+                                        "Paraulogic game save",
+                                    )
+                                    Timber.i("Saved game for ${snapshotMetadata.uniqueName}")
+                                } else
+                                    Timber.w("Could not write snapshot since not available on server.")
+                            } catch (e: IllegalStateException) {
+                                Timber.e(e, "Could not load snapshot.")
+                            } catch (e: RuntimeExecutionException) {
+                                Timber.e(e, "There's no stored snapshot.")
+                            }
+                        }
+                }
+
+                val gameInfo = try {
+                    loadGameInfoFromServer(getApplication())
+                } catch (e: NoSuchElementException) {
+                    Timber.e(e, "Could not get game info from server.")
+                    error = RESULT_NO_SUCH_ELEMENT
+                    return@ioContext
+                } catch (e: FirebaseException) {
+                    Timber.e(e, "Could not get game info from server.")
+                    error = RESULT_FIREBASE_EXCEPTION
+                    return@ioContext
+                }
+                this@MainViewModel.gameInfo = gameInfo
+
+                Timber.d("Loading words from server...")
+                val serverIntroducedWordsList = getServerIntroducedWordsList(
+                    gameInfo,
+                    snapshotsClient,
+                    loadingGameProgressCallback,
+                )
+                Timber.d("Got ${serverIntroducedWordsList.size} words from server.")
+
+                loadCorrectWords(gameInfo, serverIntroducedWordsList)
             }
-
-            val gameInfo = try {
-                loadGameInfoFromServer(getApplication())
-            } catch (e: NoSuchElementException) {
-                Timber.e(e, "Could not get game info from server.")
-                error = RESULT_NO_SUCH_ELEMENT
-                return@launch
-            } catch (e: FirebaseException) {
-                Timber.e(e, "Could not get game info from server.")
-                error = RESULT_FIREBASE_EXCEPTION
-                return@launch
-            }
-            this@MainViewModel.gameInfo = gameInfo
-
-            Timber.d("Loading words from server...")
-            val serverIntroducedWordsList = getServerIntroducedWordsList(
-                getApplication(),
-                gameInfo,
-                loadingGameProgressCallback,
-            )
-            Timber.d("Got ${serverIntroducedWordsList.size} words from server.")
-
-            loadCorrectWords(gameInfo, serverIntroducedWordsList)
         }
     }
 
@@ -195,24 +206,55 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
+     * Updates [isAuthenticated] with the current state.
+     * @author Arnau Mora
+     * @since 20220523
+     * @param signInClient The client for running requests.
+     */
+    fun loadAuthState(signInClient: GamesSignInClient) {
+        viewModelScope.launch {
+            Timber.i("Checking if authenticated...")
+            isAuthenticated = signInClient.isAuthenticated.await().isAuthenticated
+        }
+    }
+
+    /**
+     * Requests the user to sign in. Updates [isAuthenticated] accordingly.
+     * @author Arnau Mora
+     * @since 20220523
+     * @param signInClient The client for running requests.
+     */
+    fun signIn(signInClient: GamesSignInClient) {
+        viewModelScope.launch {
+            Timber.i("Trying to sign in...")
+            signInClient
+                .signIn()
+                .addOnSuccessListener { result ->
+                    isAuthenticated = result.isAuthenticated
+                    Timber.i("Logged in. Authenticated: ${result.isAuthenticated}")
+                }
+        }
+    }
+
+    /**
      * Runs [startSynchronization] in the view model scope.
      * @author Arnau Mora
      * @since 20220323
-     * @param context The context to launch the synchronization from.
+     * @param activity The Activity the task is running from.
      * @param gameInfo The [GameInfo] instance of the currently playing game.
      * @param history The history of all the games.
      */
     fun synchronize(
-        context: Context,
+        activity: Activity,
         gameInfo: GameInfo,
         history: List<GameHistoryItem>,
     ) {
         viewModelScope.launch(context = Dispatchers.IO) {
-            startSynchronization(context, gameInfo, history)
+            startSynchronization(activity, gameInfo, history)
         }
     }
 
-    @UiThread
+    @WorkerThread
     @AddTrace(name = "CorrectWordsLoad")
     private suspend fun loadCorrectWords(
         gameInfo: GameInfo,
@@ -221,7 +263,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val databaseSingleton = DatabaseSingleton.getInstance(getApplication())
         val hash = gameInfo.hash
         val dao = databaseSingleton.db.wordsDao()
-        withContext(Dispatchers.IO) { dao.getAll() }
+        dao.getAll()
             .collect { list ->
                 correctWords.clear()
                 correctWords.addAll(

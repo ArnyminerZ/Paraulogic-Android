@@ -36,8 +36,8 @@ import com.arnyminerz.paraulogic.game.maxDate
 import com.arnyminerz.paraulogic.game.minDate
 import com.arnyminerz.paraulogic.ui.elements.DatePicker
 import com.arnyminerz.paraulogic.ui.viewmodel.MainViewModel
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.games.Games
+import com.arnyminerz.paraulogic.utils.activity
+import com.google.android.gms.games.PlayGames
 import timber.log.Timber
 import java.util.Calendar
 
@@ -119,11 +119,9 @@ fun StatsScreen(
         }
         Button(
             onClick = {
-                GoogleSignIn.getLastSignedInAccount(context)?.let { account ->
-                    Games.getLeaderboardsClient(context, account)
-                        .getLeaderboardIntent(context.getString(R.string.leaderboard_world_ranking))
-                        .addOnSuccessListener { popupLauncher.launch(it) }
-                }
+                PlayGames.getLeaderboardsClient(context.activity!!)
+                    .getLeaderboardIntent(context.getString(R.string.leaderboard_world_ranking))
+                    .addOnSuccessListener { popupLauncher.launch(it) }
             },
             colors = ButtonDefaults.textButtonColors()
         ) {
