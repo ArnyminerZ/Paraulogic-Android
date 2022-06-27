@@ -121,7 +121,7 @@ dependencies {
     implementation "androidx.compose.runtime:runtime-livedata:$compose_version"
 
     // Jetpack Compose - Accompanist
-    implementation 'com.google.accompanist:accompanist-pager:0.24.9-beta'
+    implementation 'com.google.accompanist:accompanist-pager:0.24.12-rc'
 
     // Lifecycle async components
     implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:$lifecycle_version"
@@ -145,7 +145,7 @@ dependencies {
     implementation 'com.google.android.gms:play-services-auth:20.2.0'
 
     // Play Services - KotlinX coroutines
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.6.1'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.6.3'
 
     // Firebase
     implementation platform('com.google.firebase:firebase-bom:29.1.0')

@@ -87,13 +87,13 @@ jobs:
           cat ./changelog/whatsnew-en-US
       - name: Upload to Play Store
         id: upload_play_store
-        uses: r0adkll/upload-google-play@v1.0.16
+        uses: r0adkll/upload-google-play@v1.0.17
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_STORE_GOOGLE_CLOUD_JSON }}
           packageName: com.arnyminerz.paraulogic
           releaseFiles: ./app/build/outputs/bundle/release/app-release.aab
           track: internal
           inAppUpdatePriority: 2
-          #          mappingFile: ./app/build/outputs/mapping/release/mapping.txt
-          whatsNewDirectory: ./changelog
+          # mappingFile: ./app/build/outputs/mapping/release/mapping.txt
+          # whatsNewDirectory: ./changelog
           status: completed

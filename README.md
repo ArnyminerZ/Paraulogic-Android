@@ -9,6 +9,9 @@
 
 [![Crowdin](https://badges.crowdin.net/badge/dark/crowdin-on-light.png)](https://crowdin.com/project/paraulgic-android)
 
+**Pròxima versió:**
+[![GitHub milestone](https://img.shields.io/github/milestones/progress/ArnyminerZ/Paraulogic-Android/1?style=flat-square)](https://github.com/ArnyminerZ/Paraulogic-Android/milestone/1)
+
 Aquesta aplicació ha sigut creada totalment per a la comunitat, veient què demana la gent, i el que
 pròpiament he notat, observat, i m'han dit que estaria bé que fos afegit com a funcionalitat.
 

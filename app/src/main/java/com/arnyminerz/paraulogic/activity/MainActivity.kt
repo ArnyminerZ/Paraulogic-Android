@@ -10,6 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.datastore.preferences.core.edit
 import androidx.lifecycle.ViewModelProvider
 import com.arnyminerz.paraulogic.R
 import com.arnyminerz.paraulogic.activity.model.LanguageActivity
@@ -70,7 +71,12 @@ class MainActivity : LanguageActivity() {
                 BuyCoffeeDialog(showingDialog) { showingDialog = false }
 
                 doAsync {
-                    if (dataStore.data.first()[PreferencesModule.ShownDonateDialog] != true)
+                    dataStore.edit {
+                        it[PreferencesModule.NumberOfLaunches] =
+                            (it[PreferencesModule.NumberOfLaunches]
+                                ?: if (it[PreferencesModule.ShownDonateDialog] == true) 15 else 0) + 1
+                    }
+                    if (dataStore.data.first()[PreferencesModule.NumberOfLaunches] == 15)
                         uiContext { showingDialog = true }
                 }
             }

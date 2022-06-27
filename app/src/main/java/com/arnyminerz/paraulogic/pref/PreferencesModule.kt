@@ -2,6 +2,7 @@ package com.arnyminerz.paraulogic.pref
 
 import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 
@@ -15,4 +16,6 @@ object PreferencesModule {
     val Language = stringPreferencesKey(PREF_LANGUAGE)
 
     val ShownDonateDialog = booleanPreferencesKey(PREF_SHOWN_DONATE_DIALOG)
+
+    val NumberOfLaunches = intPreferencesKey(PREF_NUMBER_OF_LAUNCHES)
 }

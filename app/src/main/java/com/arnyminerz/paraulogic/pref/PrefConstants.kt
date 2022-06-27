@@ -9,3 +9,5 @@ const val PREF_LANGUAGE = "language"
 const val PREF_SHOWN_LOGIN = "shownLogin"
 
 const val PREF_SHOWN_DONATE_DIALOG = "shownDonate"
+
+const val PREF_NUMBER_OF_LAUNCHES = "numberOfLaunches"
