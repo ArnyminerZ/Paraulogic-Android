@@ -71,7 +71,7 @@ android {
         compose true
     }
     composeOptions {
-        kotlinCompilerExtensionVersion compose_version
+        kotlinCompilerExtensionVersion '1.2.0'
     }
     packagingOptions {
         resources {
@@ -96,11 +96,11 @@ android.applicationVariants.all { variant ->
 }
 
 dependencies {
-    implementation 'androidx.core:core-ktx:1.7.0'
-    implementation 'com.google.android.material:material:1.7.0-alpha01'
+    implementation 'androidx.core:core-ktx:1.8.0'
+    implementation 'com.google.android.material:material:1.7.0-alpha02'
     implementation "androidx.activity:activity-ktx:$activity_version"
     implementation "androidx.fragment:fragment-ktx:$fragment_version"
-    implementation "androidx.appcompat:appcompat:1.6.0-alpha04"
+    implementation "androidx.appcompat:appcompat:1.6.0-alpha05"
 
     // Jetpack Compose
     implementation "androidx.compose.ui:ui:$compose_version"
@@ -115,13 +115,13 @@ dependencies {
     implementation "androidx.activity:activity-compose:$activity_version"
 
     // Jetpack Compose - Material 3
-    implementation 'androidx.compose.material3:material3:1.0.0-alpha12'
+    implementation 'androidx.compose.material3:material3:1.0.0-alpha14'
 
     // Jetpack Compose - Async
     implementation "androidx.compose.runtime:runtime-livedata:$compose_version"
 
     // Jetpack Compose - Accompanist
-    implementation 'com.google.accompanist:accompanist-pager:0.24.12-rc'
+    implementation 'com.google.accompanist:accompanist-pager:0.24.13-rc'
 
     // Lifecycle async components
     implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:$lifecycle_version"
@@ -155,7 +155,7 @@ dependencies {
     implementation 'com.google.firebase:firebase-firestore-ktx'
 
     // Coil Image Loading
-    implementation 'io.coil-kt:coil-compose:1.4.0'
+    implementation 'io.coil-kt:coil-compose:2.1.0'
 
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.3'

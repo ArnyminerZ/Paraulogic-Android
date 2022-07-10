@@ -37,6 +37,7 @@ private fun LetterButton(
 ) {
     Button(
         onClick = onClick,
+        enabled = letter != '\u0000',
         shape = HexagonalShape,
         modifier = modifier.size(BUTTON_SIDE.dp),
         colors = ButtonDefaults.filledTonalButtonColors(
@@ -52,7 +53,11 @@ private fun LetterButton(
                 MaterialTheme.colorScheme.onPrimary,
         )
     ) {
-        Text(letter.toString())
+        Text(
+            (letter
+                .takeIf { it == '\u0000' }
+                ?: letter).toString()
+        )
     }
 }
 

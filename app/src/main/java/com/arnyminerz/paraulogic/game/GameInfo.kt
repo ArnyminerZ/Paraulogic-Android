@@ -161,6 +161,16 @@ data class GameInfo(
 
         pointsPerLevel = maxPoints / AMOUNT_OF_LEVELS
 
+        // Make sure that there are 6 letters (+ the center one)
+        if (letters.value.size < 6)
+            letters.value = letters
+                .value
+                .toMutableList()
+                .apply {
+                    (0 until 6)
+                        .forEach { _ -> add('\u0000') }
+                }
+
         val sortedLetters = letters.value.sorted()
         val sortedWords = words.entries.sortedBy { it.key }.map { it.key + ":" + it.value }
         val toHash = sortedLetters.joinToString(";") +
