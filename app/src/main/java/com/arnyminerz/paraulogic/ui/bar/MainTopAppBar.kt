@@ -120,7 +120,7 @@ fun MainTopAppBar(
                     }
                 } else
                     AsyncImage(
-                        model = account.photoUrl,
+                        model = photoUrl,
                         contentDescription = stringResource(R.string.image_desc_profile),
                         contentScale = ContentScale.Fit,
                         modifier = Modifier
